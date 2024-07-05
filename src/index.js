@@ -4,7 +4,9 @@ import { app } from './app.js';
 
 connectDB()
 .then(() => {
-    app.listen(process.env.PORT || 3000);
+    app.listen(process.env.PORT || 3000, () => {
+        console.log(`sever running on http://localhost:${process.env.PORT}...`);
+    });
     app.on('errror', (error) => {
         console.log("ERRROR: ", error);
         throw error;
