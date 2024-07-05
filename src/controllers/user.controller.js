@@ -5,3 +5,11 @@ const userRegistration = asyncHandler( async (req, res) => {
         message: "OK"
     });
 });
+
+const test = asyncHandler( async (req, res) => {
+    res.status(200).json({
+        message: "OK"
+    });
+});
+
+export {userRegistration, test}
