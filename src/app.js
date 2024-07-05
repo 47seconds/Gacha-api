@@ -13,4 +13,10 @@ app.use(urlencoded({extended: true, limit: '16kb'}));   // handles request from 
 app.use(express.static('public'));  // the files/assets that are stored in server to be accessed everywhere.
 app.use(cookieParser());
 
+// Import routes
+import userRouter from './routes/user.routes.js';
+
+// Declare routes
+app.use('/api/v1/users', userRouter);
+
 export {app}
