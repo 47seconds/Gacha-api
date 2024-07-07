@@ -14,9 +14,13 @@ app.use(express.static('public'));  // the files/assets that are stored in serve
 app.use(cookieParser());
 
 // Import routes
+const apiRoute = express.Router();
 import userRouter from './routes/user.routes.js';
 
 // Declare routes
-app.use('/users', userRouter);
+apiRoute.use('/users', userRouter);
+
+// Main route from API
+app.use('/api/v1', apiRoute);
 
 export {app}
