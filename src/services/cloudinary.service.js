@@ -17,7 +17,10 @@ export const uploadOnCloudinary = async (localFilePath) => {
             resource_type: 'auto'
         });
 
-        console.log("File uploaded successfully. ", response.url);
+        // console.log("File uploaded successfully. ", response.url);
+        // fs.unlink(localFilePath);       // Delete file after successfully uploaded on cloudinary server
+        // console.log(response);
+        delete response.api_key;        // Delete api key used from response for security
         return response;
     } catch (error) {
         // If failed to upload, delete that locally stored file from server
