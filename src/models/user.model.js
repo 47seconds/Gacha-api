@@ -70,8 +70,8 @@ userSchema.methods.generateAccessToken = function(){
     return jwt.sign(    // Read jwt docs to learn more, encryption here dont take much time, thats why some people have security concerns
         {
             _id: this._id,
-            email: this.email,
-            username: this.username
+            // email: this.email,
+            // username: this.username
         },
         process.env.ACCESS_TOKEN_SECRET,
         {
