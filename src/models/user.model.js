@@ -54,9 +54,9 @@ const userSchema = new Schema(
     }
 );
 
-userSchema.pre('save', async function(next) {           // pre is a hook and save is a middleware used to execute code 'pre' to 'save' in database
-    if (!this.isModified('password')) return next();    // Only hash password when it is modified or first time entered, not just when user change its avatar, or anything, otherwise this will hash password beyond recovery
-    this.password = await bcrypt.hash(this.password, 10);     // We use function rather than arrow function so we have access to context (i.e. userSchema), and hash password field just before saving it to database with 10 rounds of encryption (variable, more rounds means beter encryption, but more time)
+userSchema.pre('save', async function(next) {               // pre is a hook and save is a middleware used to execute code 'pre' to 'save' in database
+    if (!this.isModified('password')) return next();        // Only hash password when it is modified or first time entered, not just when user change its avatar, or anything, otherwise this will hash password beyond recovery
+    this.password = await bcrypt.hash(this.password, 10);   // We use function rather than arrow function so we have access to context (i.e. userSchema), and hash password field just before saving it to database with 10 rounds of encryption (variable, more rounds means beter encryption, but more time)
     next();
 });
 
