@@ -1,5 +1,5 @@
-import {ApiError} from '../utils/ApiError.util.js';
-import emailDomains from '../resources/emailDomains.json';
+import {ApiError} from '../../utils/ApiError.util.js';
+import emailDomains from '../../resources/emailDomains.json' assert { type: 'json' };
 
 export const userEmailValidation = (userEmail) => {
     const userEmailDomain = userEmail.split('@');
@@ -9,7 +9,7 @@ export const userEmailValidation = (userEmail) => {
     } else if (
         emailDomains.includes(userEmailDomain[1])
     ) {
-        console,log('Email is valid');
+        // console.log('Email is valid: ', userEmailDomain[1]);
     } else {
         throw new ApiError(409, "ERROR: please provide your email address");
     }

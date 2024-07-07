@@ -1,5 +1,5 @@
 import {ApiError} from '../../utils/ApiError.util.js';
-import disallowedCharacters from '../../resources/disallowedCharacters.json';
+import disallowedCharacters from '../../resources/disallowedCharacters.json' assert { type: 'json' };
 
 export const userPasswordValidation = (password) => {
     if (password.length < 8) throw new ApiError(409, "ERROR: password should be greater than or equal to 8 letters");
