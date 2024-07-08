@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { userLogin, userLogout, userRegistration } from "../controllers/user.controller.js";
+import { userLogin, userLogout, userRegistration, userRefreshToken } from "../controllers/user.controller.js";
 import {upload} from '../middlewares/multer.middleware.js';
 import {verifyJWT} from '../middlewares/auth.middleware.js';
 
@@ -21,6 +21,8 @@ userRouter.route('/register').post(
 
 userRouter.route('/login').post(userLogin);
 
-userRouter.route('/logout').post(verifyJWT, userLogout);
+userRouter.route('/logout').post(verifyJWT, userLogout);    // authenticate user before logout using access token
 
-export default userRouter;  
+userRouter.route('/refresh-token').post(userRefreshToken);   // no need to authentiate, we are generating new access token, so verifuJWT method wont work
+
+export default userRouter;      
