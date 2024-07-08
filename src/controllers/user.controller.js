@@ -15,7 +15,8 @@ import {
 } from "../services/cloudinary.service.js";
 import { User } from "../models/user.model.js";
 import { generateAccessAndRefreshToken } from "../utils/generateAccessAndRefreshToken.util.js";
-import { generateAccessToken } from "../utils/generateAccessToken.util.js";
+import { generateUserAccessToken } from "../utils/generateAccessToken.util.js";
+import mongoose from "mongoose";
 
 // Global cookie options for sending cookies
 const cookieOptions = {
@@ -183,8 +184,8 @@ const userLogout = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, {}, "user logged out successfully"));
 });
 
-const userRefreshToken = asyncHandler(async (req, res) => {
-    const { accessToken, refreshToken } = generateAccessToken(req, res);
+const userRefreshToken = asyncHandler(async (req, res, next) => {
+    const { accessToken, refreshToken } = generateUserAccessToken(req, res, next);
 
     return res
         .status(200)
@@ -239,9 +240,10 @@ const userDetailsUpdate = asyncHandler(async (req, res) => {
         req.user?._id,
         {
             $set: {
-                fullName,
-                email,
-                username,
+                // in case only some details are required to change
+                fullName: fullName || req.user.fullname,
+                email: email || req.user.email,
+                username: username || req.user.username,
             },
         },
         {
@@ -383,6 +385,7 @@ const userChannelProfile = asyncHandler(async (req, res) => {
         },
         {
             // Second: users who suscribed to same channel, therefore select current channel for suscribers
+            // for 'localField' find all 'from' using 'foriegnFeild' as name document as 'as'
             $lookup: {
                 from: "subscriptions", // since MongoDB changes collection names to plural with lowercases
                 localField: "_id", // user id for current channel
@@ -445,6 +448,65 @@ const userChannelProfile = asyncHandler(async (req, res) => {
     );
 });
 
+const userWatchHistory = asyncHandler(async (req, res) => {
+    const user = await User.aggregate([
+        {
+            // find user
+            $match: {
+                // since mongoose _id is moongose OnjectId object, but req.user._id will be string, by parsing it mongoose take care of converting it to ObjectId, but pipelines don't, so we have to forcefylly convert it
+                _id: new mongoose.Types.ObjectId(req.user._id),
+            },
+        },
+        {
+            $lookup: {
+                localField: "watchHistory",
+                from: "videos",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    // since watchHistory has owner field as user, we need that info too
+                    {
+                        $lookup: {
+                            localField: "owner",
+                            from: "users",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        // as each owner has its own user properties -> [{fullname, username, ...}], if this pipeline was done outside, we would have array of users (owners) will all details -> [{fullname, ...(all)}, {...}, ...], and sorting them would have been very difficult
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    {
+                        $addFields: {
+                            owner: {
+                                // for frontend, since only first object in array is our owner, just send that as response
+                                $first: "$owner",
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ]);
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                user[0].watchHistory,
+                "user watch history fetched successfully"
+            )
+        );
+});
+
 export {
     userRegistration,
     userLogin,
@@ -457,4 +519,5 @@ export {
     userCoverImageUpdate,
     userDelete,
     userChannelProfile,
+    userWatchHistory,
 };
