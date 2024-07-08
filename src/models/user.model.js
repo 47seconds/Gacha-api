@@ -31,8 +31,16 @@ const userSchema = new Schema(
             type: String,   // Cloudinary / AWS media bucket
             required: true,
         },
+        avatarPublicId: {   // will be used to delete assets
+            type: String,
+            required: true
+        },
         coverImage: {
             type: String,   // Cloudinary / AWS media bucket
+            required: false
+        },
+        coverImagePublicId: {   // will be used to delete assets
+            type: String,
             required: false
         },
         watchHistory: [
