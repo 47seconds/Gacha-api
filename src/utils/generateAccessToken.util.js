@@ -4,7 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.util.js";
 import jwt from 'jsonwebtoken';
 import { generateAccessAndRefreshToken } from "./generateAccessAndRefreshToken.util.js";
 
-export const generateAccessToken = asyncHandler(async (req, res) => {
+export const generateUserAccessToken = asyncHandler(async (req, res, next) => {
     // Look for refresh token from cookies
     const cookieRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
     try {
