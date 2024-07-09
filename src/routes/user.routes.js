@@ -13,7 +13,7 @@ import {
     userChannelProfile,
     userWatchHistory,
 } from "../controllers/user.controller.js";
-import { upload } from "../middlewares/multer.middleware.js";
+import { uploadImages } from "../middlewares/multer.middleware.js";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const userRouter = Router();
@@ -21,7 +21,7 @@ const userRouter = Router();
 // verifyJWT makes a req.user field in req if user is logged in
 
 userRouter.route("/register").post(
-    upload.fields([
+    uploadImages.fields([
         // Added file upload middleware for avatar, and coverImage from frontend when user registers
         {
             name: "avatar",
@@ -44,11 +44,12 @@ userRouter.route("/me").get(verifyJWT, userCurrent); // get current user
 userRouter.route("/update-account-details").patch(verifyJWT, userDetailsUpdate); // update account details (text only)
 userRouter
     .route("/change-avatar")
-    .patch(verifyJWT, upload.single("avatar"), userAvatarUpdate); // update user avatar
+    .patch(verifyJWT, uploadImages.single("avatar"), userAvatarUpdate); // update user avatar
 userRouter
     .route("/change-cover-image")
-    .patch(verifyJWT, upload.single("coverImage"), userCoverImageUpdate); // update user cover image
+    .patch(verifyJWT, uploadImages.single("coverImage"), userCoverImageUpdate); // update user cover image
 userRouter.route("/channel/:username").get(verifyJWT, userChannelProfile); // get any channel profile
 userRouter.route("/history").get(verifyJWT, userWatchHistory); // get user watch history
 
 export default userRouter;
+        
