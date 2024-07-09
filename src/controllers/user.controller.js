@@ -15,7 +15,7 @@ import {
 } from "../services/cloudinary.service.js";
 import { User } from "../models/user.model.js";
 import { generateAccessAndRefreshToken } from "../utils/generateAccessAndRefreshToken.util.js";
-import { generateUserAccessToken } from "../utils/generateAccessToken.util.js";
+import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
 // Global cookie options for sending cookies
@@ -92,24 +92,24 @@ const userRegistration = asyncHandler(async (req, res) => {
         password,
     });
 
-    // REMOVING ENCRYPTED PASSWORD AND REFRESH TOKEN AS USER DON'T NEED THEM FROM RESPONSE
-    const createdUser = await User.findById(user._id).select(
-        // check if user is created (may remove this process as it makes more db calls and slows platform)
-        "-password -refreshToken"
-    );
-
     // CHECKING FOR NEW USER CREATION
-    if (!createdUser)
-        throw new ApiError(500, "ERROR: failed to create new user");
+    if (!user) throw new ApiError(500, "ERROR: failed to create new user");
+
+    // REMOVING ENCRYPTED PASSWORD AND REFRESH TOKEN AS USER DON'T NEED THEM FROM RESPONSE
+    const createdUser = { ...user };
+    delete createdUser._doc.password;
+    delete createdUser._doc.refreshToken;
 
     // REMOVING LOCALLY STORED TEMPORARY ASSETS
     removeAssets([avatarLocalPath, coverImageLocalPath]);
 
     // SENDING RESPONSE
-    console.log(`account '${createdUser.username}' created successfully`);
+    console.log(`account '${createdUser._doc.username}' created successfully`);
     return res
         .status(201)
-        .json(new ApiResponse(200, createdUser, "User created successfully"));
+        .json(
+            new ApiResponse(200, createdUser._doc, "User created successfully")
+        );
 });
 
 const userLogin = asyncHandler(async (req, res) => {
@@ -184,8 +184,29 @@ const userLogout = asyncHandler(async (req, res) => {
         .json(new ApiResponse(200, {}, "user logged out successfully"));
 });
 
-const userRefreshToken = asyncHandler(async (req, res, next) => {
-    const { accessToken, refreshToken } = generateUserAccessToken(req, res, next);
+const userRefreshToken = asyncHandler(async (req, res) => {
+    // Look for refresh token from cookies
+    const cookieRefreshToken =
+        req.cookies.refreshToken || req.body.refreshToken;
+
+    const decodedRefreshToken = jwt.verify(
+        cookieRefreshToken,
+        process.env.REFRESH_TOKEN_SECRET
+    );
+    if (!decodedRefreshToken) throw new ApiError(401, "unauthorized request");
+
+    // Look for user from decoded token's payload
+    const requestUser = await User.findById(decodedRefreshToken?._id);
+    if (!requestUser) throw new ApiError(400, "Invalid refresh token");
+
+    // Compare refresh tokens from decoded and from database
+    if (requestUser?.refreshToken !== cookieRefreshToken)
+        throw new ApiError(401, "refresh token expired or invalid");
+
+    // Refresh refresh token and give new access token
+    const { accessToken, refreshToken } = generateAccessAndRefreshToken(
+        requestUser._id
+    );
 
     return res
         .status(200)
@@ -231,9 +252,9 @@ const userPasswordChange = asyncHandler(async (req, res) => {
 
 const userDetailsUpdate = asyncHandler(async (req, res) => {
     // These fields may chage in future
-    const { username, fullName, email } = req.body;
+    let { username, fullName, email } = req.body;
 
-    if (!username || !email || !fullName)
+    if (!(username || email || fullName))
         throw new ApiError(400, "none of the details are changed");
 
     const user = await User.findByIdAndUpdate(
@@ -288,6 +309,8 @@ const userAvatarUpdate = asyncHandler(async (req, res) => {
         oldAvatarRemovedResponse = null;
     }
 
+    removeAssets([avatarLocalPath]);
+
     return res.status(200).json(
         new ApiResponse(
             200,
@@ -332,6 +355,8 @@ const userCoverImageUpdate = asyncHandler(async (req, res) => {
     } catch (error) {
         oldCoverImageRemovedResponse = null;
     }
+
+    removeAssets([coverImageLocalPath]);
 
     return res.status(200).json(
         new ApiResponse(
