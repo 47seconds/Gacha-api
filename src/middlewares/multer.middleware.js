@@ -13,6 +13,44 @@ const storage = multer.diskStorage({
     }
 });
 
-export const upload = multer({
-    storage: storage
+// File filter to accept only specified file types
+const imageFilter = (req, file, cb) => {
+    // Allowed file types
+    const allowedTypes = /jpeg|jpg|png|webp|gif/;
+    // Check the file extension
+    const extname = allowedTypes.test(file.originalname.toLowerCase().split('.').pop());
+    // Check the mime type
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+        return cb(null, true);
+    } else {
+        cb(new Error('Only JPEG, PNG, and PDF files are allowed!'), false);
+    }
+};
+
+// File filter to accept only specified file types
+const videoFilter = (req, file, cb) => {
+    // Allowed file types
+    const allowedTypes = /mp4|mkv|mov|flv|webm|avi|wmv/;
+    // Check the file extension
+    const extname = allowedTypes.test(file.originalname.toLowerCase().split('.').pop());
+    // Check the mime type
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+        return cb(null, true);
+    } else {
+        cb(new Error('Only JPEG, PNG, and PDF files are allowed!'), false);
+    }
+};
+
+export const uploadVideos = multer({
+    storage: storage,
+    fileFilter: imageFilter
+});
+
+export const uploadImages = multer({
+    storage: storage,
+    fileFilter: imageFilter
 });
