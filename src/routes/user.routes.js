@@ -14,6 +14,7 @@ import {
     userWatchHistory,
 } from "../controllers/user.controller.js";
 import { uploadImages } from "../middlewares/multer.middleware.js";
+import {userSession} from '../middlewares/userSession.middleware.js';
 import { verifyJWT } from "../middlewares/auth.middleware.js";
 
 const userRouter = Router();
@@ -35,7 +36,7 @@ userRouter.route("/register").post(
     userRegistration
 );
 
-userRouter.route("/login").post(userLogin);
+userRouter.route("/login").post(userSession, userLogin);
 userRouter.route("/logout").post(verifyJWT, userLogout); // authenticate user before logout using access token
 userRouter.route("/refresh-token").post(userRefreshToken); // no need to authentiate, we are generating new access token, so verifuJWT method wont work
 userRouter.route("/delete-account").delete(verifyJWT, userDelete); // delete account, but we need req.url first
