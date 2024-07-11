@@ -2,65 +2,65 @@ import mongoose, {Schema} from 'mongoose';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-const userSchema = new Schema(
-    {
-        username: {
-            type: String,
-            required: true,
-            unique: true,
-            lowercase: true,
-            trim: true,
-            index: true     // This is used on a field that will be searched most (ONLY USE WHEN NECESSARY AS IT WILL COST)
-        },
-        email: {
-            type: String,
-            required: true,
-            unique: true,
-            lowercase: true,
-            trim: true,
-        },
-        fullName: {
-            type: String,
-            required: true,
-            unique: false,
-            lowercase: false,
-            trim: true,
-            index: true     // This is used on a field that will be searched most (ONLY USE WHEN NECESSARY AS IT WILL COST)
-        },
-        avatar: {
-            type: String,   // Cloudinary / AWS media bucket
-            required: true,
-        },
-        avatarPublicId: {   // will be used to delete assets
-            type: String,
-            required: true
-        },
-        coverImage: {
-            type: String,   // Cloudinary / AWS media bucket
-            required: false
-        },
-        coverImagePublicId: {   // will be used to delete assets
-            type: String,
-            required: false
-        },
-        watchHistory: [
+        const userSchema = new Schema(
             {
-                type: mongoose.Types.ObjectId,
-                ref: 'Video'
+                username: {
+                    type: String,
+                    required: true,
+                    unique: true,
+                    lowercase: true,
+                    trim: true,
+                    index: true     // This is used on a field that will be searched most (ONLY USE WHEN NECESSARY AS IT WILL COST)
+                },
+                email: {
+                    type: String,
+                    required: true,
+                    unique: true,
+                    lowercase: true,
+                    trim: true,
+                },
+                fullName: {
+                    type: String,
+                    required: true,
+                    unique: false,
+                    lowercase: false,
+                    trim: true,
+                    index: true     // This is used on a field that will be searched most (ONLY USE WHEN NECESSARY AS IT WILL COST)
+                },
+                avatarUrl: {
+                    type: String,   // Cloudinary / AWS media bucket
+                    required: true,
+                },
+                avatarPublicId: {   // will be used to delete assets
+                    type: String,
+                    required: true
+                },
+                coverImageUrl: {
+                    type: String,   // Cloudinary / AWS media bucket
+                    required: false
+                },
+                coverImagePublicId: {   // will be used to delete assets
+                    type: String,
+                    required: false
+                },
+                watchHistory: [
+                    {
+                        type: mongoose.Types.ObjectId,
+                        ref: 'Video'
+                    }
+                ],
+                password: {
+                    type: String,
+                    required: [true, 'Password is required']
+                },  
+                refreshToken: {
+                    type: String
+                }
+            },
+            {
+                timestamps: true
             }
-        ],
-        password: {
-            type: String,
-            required: [true, 'Password is required']
-        },
-        refreshToken: {
-            type: String
-        }
-    },
-    {
-        timestamps: true
-    }
-);
+        );
 
 userSchema.pre('save', async function(next) {               // pre is a hook and save is a middleware used to execute code 'pre' to 'save' in database
     if (!this.isModified('password')) return next();        // Only hash password when it is modified or first time entered, not just when user change its avatar, or anything, otherwise this will hash password beyond recovery
