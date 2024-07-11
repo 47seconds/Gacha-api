@@ -69,47 +69,53 @@ const userRegistration = asyncHandler(async (req, res) => {
         coverImageLocalPath = "";
     }
 
-    // upload images to cloudinary
-    const avatar = await uploadOnCloudinary(avatarLocalPath);
-    if (!avatar) throw new ApiError(400, "ERROR: avatar not uploaded");
-
-    let coverImage = "";
-    if (coverImageLocalPath) {
-        coverImage = await uploadOnCloudinary(coverImageLocalPath);
+    try {
+        // upload images to cloudinary
+        const avatar = await uploadOnCloudinary(avatarLocalPath);
+        if (!avatar) throw new ApiError(400, "ERROR: avatar not uploaded");
+    
+        let coverImage = "";
+        if (coverImageLocalPath) {
+            coverImage = await uploadOnCloudinary(coverImageLocalPath);
+        }
+        // console.log(avatar);
+        // if (!coverImage) throw new ApiError(400, "ERROR: cover image not uploaded, please retry");
+    
+        // CREATING ENTRY OF NEW USER IN DATABASE
+        const user = await User.create({
+            fullName,
+            avatarUrl: avatar.url,
+            avatarPublicId: avatar.public_id, // will be used to delete assets
+            coverImageUrl: coverImage?.url || "", // since coverImage is optional in user madel
+            coverImagePublicId: coverImage?.public_id, // will be used to delete assets
+            email,
+            username: username.toLowerCase(),
+            password,
+        });
+    
+        // CHECKING FOR NEW USER CREATION
+        if (!user) throw new ApiError(500, "ERROR: failed to create new user");
+    
+        // REMOVING ENCRYPTED PASSWORD AND REFRESH TOKEN AS USER DON'T NEED THEM FROM RESPONSE
+        const createdUser = { ...user };
+        delete createdUser._doc.password;
+        delete createdUser._doc.refreshToken;
+    
+        // REMOVING LOCALLY STORED TEMPORARY ASSETS
+        removeAssets([avatarLocalPath, coverImageLocalPath]);
+    
+        // SENDING RESPONSE
+        console.log(`account '${createdUser._doc.username}' created successfully`);
+        return res
+            .status(201)
+            .json(
+                new ApiResponse(200, createdUser._doc, "User created successfully")
+            );
+    } catch (error) {
+        // REMOVING LOCALLY STORED TEMPORARY ASSETS
+        removeAssets([avatarLocalPath, coverImageLocalPath]);
+        throw new ApiError(500, error.message);
     }
-    // console.log(avatar);
-    // if (!coverImage) throw new ApiError(400, "ERROR: cover image not uploaded, please retry");
-
-    // CREATING ENTRY OF NEW USER IN DATABASE
-    const user = await User.create({
-        fullName,
-        avatar: avatar.url,
-        avatarPublicId: avatar.public_id, // will be used to delete assets
-        coverImage: coverImage?.url || "", // since coverImage is optional in user madel
-        coverImagePublicId: coverImage?.public_id, // will be used to delete assets
-        email,
-        username: username.toLowerCase(),
-        password,
-    });
-
-    // CHECKING FOR NEW USER CREATION
-    if (!user) throw new ApiError(500, "ERROR: failed to create new user");
-
-    // REMOVING ENCRYPTED PASSWORD AND REFRESH TOKEN AS USER DON'T NEED THEM FROM RESPONSE
-    const createdUser = { ...user };
-    delete createdUser._doc.password;
-    delete createdUser._doc.refreshToken;
-
-    // REMOVING LOCALLY STORED TEMPORARY ASSETS
-    removeAssets([avatarLocalPath, coverImageLocalPath]);
-
-    // SENDING RESPONSE
-    console.log(`account '${createdUser._doc.username}' created successfully`);
-    return res
-        .status(201)
-        .json(
-            new ApiResponse(200, createdUser._doc, "User created successfully")
-        );
 });
 
 const userLogin = asyncHandler(async (req, res) => {
@@ -144,7 +150,7 @@ const userLogin = asyncHandler(async (req, res) => {
     loginUser = { ...user };
     // destructuring will return many properties of mongoDB response, _doc contains our response data
     delete loginUser._doc.refreshToken;
-    delete loginUser._doc.password;
+    delete loginUser._doc.password; 
 
     return res
         .status(200)
@@ -281,93 +287,103 @@ const userAvatarUpdate = asyncHandler(async (req, res) => {
     const avatarLocalPath = req.file?.path;
     if (!avatarLocalPath) throw new ApiError(400, "no avatar was uploaded");
 
-    const oldAvatarPublicId = req.user?.avatarPublicId;
-
-    const avatar = await uploadOnCloudinary(avatarLocalPath);
-    if (!avatar.url) throw new ApiError(500, "unable to upload avatar");
-
-    let user = await User.findByIdAndUpdate(
-        req?.user._id,
-        {
-            $set: {
-                avatar: avatar.url,
-                avatarPublicId: avatar.public_id,
-            },
-        },
-        {
-            new: true,
-        }
-    );
-
-    if (!user) throw new ApiError(500, "failed to update avatar");
-
-    let oldAvatarRemovedResponse;
     try {
-        oldAvatarRemovedResponse =
-            await removeOneFromCloudinary(oldAvatarPublicId);
-    } catch (error) {
-        oldAvatarRemovedResponse = null;
-    }
-
-    removeAssets([avatarLocalPath]);
-
-    return res.status(200).json(
-        new ApiResponse(
-            200,
+        const oldAvatarPublicId = req.user?.avatarPublicId;
+    
+        const avatar = await uploadOnCloudinary(avatarLocalPath);
+        if (!avatar.url) throw new ApiError(500, "unable to upload avatar");
+    
+        let user = await User.findByIdAndUpdate(
+            req?.user._id,
             {
-                user,
-                avatarDeleteStatus: oldAvatarRemovedResponse,
+                $set: {
+                    avatarUrl: avatar.url,
+                    avatarPublicId: avatar.public_id,
+                },
             },
-            "avatar updated successfully"
-        )
-    );
+            {
+                new: true,
+            }
+        );
+    
+        if (!user) throw new ApiError(500, "failed to update avatar");
+    
+        let oldAvatarRemovedResponse;
+        try {
+            oldAvatarRemovedResponse =
+                await removeOneFromCloudinary(oldAvatarPublicId);
+        } catch (error) {
+            oldAvatarRemovedResponse = null;
+        }
+    
+        removeAssets([avatarLocalPath]);
+    
+        return res.status(200).json(
+            new ApiResponse(
+                200,
+                {
+                    user,
+                    avatarDeleteStatus: oldAvatarRemovedResponse,
+                },
+                "avatar updated successfully"
+            )
+        );
+    } catch (error) {
+        removeAssets([avatarLocalPath]);
+        throw new ApiError(500, error.message);
+    }
 });
 
 const userCoverImageUpdate = asyncHandler(async (req, res) => {
     const coverImageLocalPath = req.file?.path;
-    if (!coverImageLocalPath) throw new ApiError(400, "no avatar was uploaded");
+    if (!coverImageLocalPath) throw new ApiError(400, "no cover image was uploaded");
 
-    const coverImage = await uploadOnCloudinary(coverImageLocalPath);
-    if (!coverImage.url) throw new ApiError(500, "unable to upload avatar");
-
-    const oldCoverImagePublicId = req.user?.coverImagePublicId;
-
-    const user = await User.findByIdAndUpdate(
-        req?.user._id,
-        {
-            $set: {
-                coverImage: coverImage.url,
-                coverImagePublicId: coverImage.public_id,
-            },
-        },
-        {
-            new: true,
-        }
-    );
-
-    if (!user) throw new ApiError(500, "failed to update avatar");
-
-    let oldCoverImageRemovedResponse;
     try {
-        oldCoverImageRemovedResponse = await removeOneFromCloudinary(
-            oldCoverImagePublicId
+        const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+        if (!coverImage.url) throw new ApiError(500, "unable to upload cover image");
+    
+        const oldCoverImagePublicId = req.user?.coverImagePublicId;
+    
+        const user = await User.findByIdAndUpdate(
+            req?.user._id,
+            {
+                $set: {
+                    coverImageUrl: coverImage.url,
+                    coverImagePublicId: coverImage.public_id,
+                },
+            },
+            {
+                new: true,
+            }
+        );
+    
+        if (!user) throw new ApiError(500, "failed to update cover image");
+    
+        let oldCoverImageRemovedResponse;
+        try {
+            oldCoverImageRemovedResponse = await removeOneFromCloudinary(
+                oldCoverImagePublicId
+            );
+        } catch (error) {
+            oldCoverImageRemovedResponse = null;
+        }
+    
+        removeAssets([coverImageLocalPath]);
+    
+        return res.status(200).json(
+            new ApiResponse(
+                200,
+                {
+                    user,
+                    coverImageDeleteStatus: oldCoverImageRemovedResponse,
+                },
+                "cover image updated successfully"
+            )
         );
     } catch (error) {
-        oldCoverImageRemovedResponse = null;
+        removeAssets([coverImageLocalPath]);
+        throw new ApiError(500, error.message);
     }
-
-    removeAssets([coverImageLocalPath]);
-
-    return res.status(200).json(
-        new ApiResponse(
-            200,
-            {
-                user,
-                coverImageDeleteStatus: oldCoverImageRemovedResponse,
-            },
-            "cover image updated successfully"
-        )
-    );
 });
 
 const userDelete = asyncHandler(async (req, res) => {
@@ -384,7 +400,11 @@ const userDelete = asyncHandler(async (req, res) => {
         ]);
 
         console.log(`account '${response.username}' deleted successfully`);
-        return res.status(200).json(
+        return res
+        .status(200)
+        .clearCookie("accessToken", cookieOptions)      // clear cookies on logout else, when login these cookies interfere
+        .clearCookie("refreshToken", cookieOptions)
+        .json(
             new ApiResponse(
                 200,
                 {
@@ -454,8 +474,8 @@ const userChannelProfile = asyncHandler(async (req, res) => {
                 suscribersCount: 1,
                 suscribedToChannelsCount: 1,
                 isSuscribed: 1,
-                avatar: 1,
-                coverImage: 1,
+                avatarUrl: 1,
+                coverImageUrl: 1,
                 // email: 1
             },
         },
@@ -502,7 +522,7 @@ const userWatchHistory = asyncHandler(async (req, res) => {
                                         // as each owner has its own user properties -> [{fullname, username, ...}], if this pipeline was done outside, we would have array of users (owners) will all details -> [{fullname, ...(all)}, {...}, ...], and sorting them would have been very difficult
                                         fullName: 1,
                                         username: 1,
-                                        avatar: 1,
+                                        avatarUrl: 1,
                                     },
                                 },
                             ],
