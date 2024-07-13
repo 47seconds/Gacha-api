@@ -95,6 +95,8 @@ const userRegistration = asyncHandler(async (req, res) => {
     
         // CHECKING FOR NEW USER CREATION
         if (!user) throw new ApiError(500, "ERROR: failed to create new user");
+
+        const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
     
         // REMOVING ENCRYPTED PASSWORD AND REFRESH TOKEN AS USER DON'T NEED THEM FROM RESPONSE
         const createdUser = { ...user };
@@ -108,6 +110,8 @@ const userRegistration = asyncHandler(async (req, res) => {
         console.log(`account '${createdUser._doc.username}' created successfully`);
         return res
             .status(201)
+            .cookie("accessToken", accessToken, cookieOptions)
+            .cookie("refreshToken", refreshToken, cookieOptions)
             .json(
                 new ApiResponse(200, createdUser._doc, "User created successfully")
             );
@@ -150,7 +154,12 @@ const userLogin = asyncHandler(async (req, res) => {
     loginUser = { ...user };
     // destructuring will return many properties of mongoDB response, _doc contains our response data
     delete loginUser._doc.refreshToken;
-    delete loginUser._doc.password; 
+    delete loginUser._doc.password;
+    const loggedInUser = {
+        ...loginUser._doc,
+        // refreshToken,
+        // accessToken
+    };
 
     return res
         .status(200)
@@ -159,11 +168,7 @@ const userLogin = asyncHandler(async (req, res) => {
         .json(
             new ApiResponse(
                 200,
-                {
-                    user: loginUser._doc,
-                    accessToken,
-                    refreshToken,
-                },
+                loggedInUser,
                 "user logged in successfully"
             )
         );
@@ -396,7 +401,7 @@ const userDelete = asyncHandler(async (req, res) => {
         const response = await User.findByIdAndDelete(req?.user._id);
         const avatarCoverImageDeleteResponse = await removeManyFromCloudinary([
             req.user.avatarPublicId,
-            req.user.coverImagePublicId,
+            req.user?.coverImagePublicId,
         ]);
 
         console.log(`account '${response.username}' deleted successfully`);
