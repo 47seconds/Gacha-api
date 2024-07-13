@@ -127,7 +127,7 @@ const userLogin = asyncHandler(async (req, res) => {
     // send cookie
 
     // LOGIN DATA FROM USER
-    const { email, username, password } = req.body;
+    const { email, username, password } = req.body;     
     if (!(email || username))
         throw new ApiError(400, "ERROR: please provide email or username");
 
@@ -175,12 +175,12 @@ const userLogout = asyncHandler(async (req, res) => {
         req.user._id,
         {
             $set: {
-                refreshToken: undefined,
+                refreshToken: '',
             },
+        },
+        {
+        new: true      // will return latest value of object after update, as we are not storing this instance in a variable
         }
-        // {
-        // new: true      // will return latest value of object after update, as we are not storing this instance in a variable
-        // }
     );
 
     return res
@@ -188,7 +188,7 @@ const userLogout = asyncHandler(async (req, res) => {
         .clearCookie("accessToken", cookieOptions)
         .clearCookie("refreshToken", cookieOptions)
         .json(new ApiResponse(200, {}, "user logged out successfully"));
-});
+});     
 
 const userRefreshToken = asyncHandler(async (req, res) => {
     // Look for refresh token from cookies
