@@ -4,6 +4,7 @@ import { ApiResponse } from "../utils/ApiResponse.util.js";
 import {User} from '../models/user.model.js';
 import {Video} from '../models/video.model.js';
 import { uploadOnCloudinary } from "../services/cloudinary.service.js";
+import ffmpeg from "ffmpeg";
 import mongoose from "mongoose";
 
 const videoUpload = asyncHandler(async (req, res) => {
@@ -101,7 +102,17 @@ const videoIdSearch = asyncHandler(async (req, res) => {
         }
     ]);
 
-    
+    if (!video?.length) throw new ApiError(400, "no such video exists");
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            video[0],
+            "video fetched successfully"
+        )
+    )
 });
 
 export {videoUpload, videoIdSearch}
