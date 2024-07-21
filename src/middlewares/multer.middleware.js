@@ -1,5 +1,6 @@
 import multer from "multer";
 import {nanoid} from 'nanoid';
+import { ApiError } from "../utils/ApiError.util";
 
 // We can store the uploaded file on disk or memory. Since we we recieve a big file, ram will be compromised, we will go with disk method
 // We get a 'file' option in function which express don't give, express give (req, res)
@@ -25,7 +26,7 @@ const imageFilter = (req, file, cb) => {
     if (mimetype && extname) {
         return cb(null, true);
     } else {
-        cb(new Error('Only JPEG, PNG, and PDF files are allowed!'), false);
+        cb(new ApiError(415, 'ERROR: Only JPEG, PNG, and PDF files are allowed!'));
     }
 };
 
@@ -41,7 +42,7 @@ const videoFilter = (req, file, cb) => {
     if (mimetype && extname) {
         return cb(null, true);
     } else {
-        cb(new Error('Only JPEG, PNG, and PDF files are allowed!'), false);
+        cb(new ApiError(415, 'ERROR: Only JPEG, PNG, and PDF files are allowed!'));
     }
 };
 
