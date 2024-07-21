@@ -70,49 +70,57 @@ const videoUpload = asyncHandler(async (req, res) => {
 });
 
 const videoIdSearch = asyncHandler(async (req, res) => {
-    const {vedioid} = req.params;
-    const video = Video.aggregate([
-        {
-            $match:
-            _id = mongoose.Types.ObjectId(vedioid)
-        },
-        {
-            $lookup: {
-                localField: 'owner',
-                from: 'users',
-                foreignField: '_id',
-                as: 'owner',
-                pipeline: [
-                    {
-                        $project: {
-                            username: 1,
-                            fullname: 1,
-                            avatarUrl: 1
-                        }
-                    },
-                    {
-                        $addFields: {
-                            owner: {
-                                $first: "$owner",
+    const {videoid} = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(videoid)) throw new ApiError(401, "invalid video id");
+
+    try {
+        const video = await Video.aggregate([
+            {
+                $match: {
+                    _id: new mongoose.Types.ObjectId(videoid)
+                }
+            },
+            {
+                $lookup: {
+                    localField: 'owner',
+                    from: 'users',
+                    foreignField: '_id',
+                    as: 'owner',
+                    pipeline: [
+                        {
+                            $project: {
+                                username: 1,
+                                fullname: 1,
+                                avatarUrl: 1
                             }
                         }
-                    }
-                ]
+                    ]
+                },
             },
-        }
-    ]);
+            {
+                $addFields: {
+                    owner: {
+                        $first: "$owner",
+                    }
+                }
+            }
+        ]);
 
-    if (!video?.length) throw new ApiError(400, "no such video exists");
+        if (!video?.length) throw new ApiError(400, "no such video exists");
 
-    return res
-    .status(200)
-    .json(
-        new ApiResponse(
-            200,
-            video[0],
-            "video fetched successfully"
+        return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                video[0],
+                "video fetched successfully"
+            )
         )
-    )
+    } catch (error) {
+        throw new ApiError(500, error.message);
+    }
 });
 
 export {videoUpload, videoIdSearch}
