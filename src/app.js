@@ -19,7 +19,7 @@
             import videoRouter from './routes/video.routes.js';
 
             // Declare routes
-            apiRoute.use('/users', userRouter);
+            apiRoute.use('/user', userRouter);
             apiRoute.use('/video', videoRouter);
 
             // Main route from API
