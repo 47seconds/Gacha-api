@@ -11,8 +11,10 @@
   "license": "MIT",
   "description": "",
   "devDependencies": {
+    "@types/node": "^20.14.11",
     "nodemon": "^3.1.4",
-    "prettier": "^3.3.2"
+    "prettier": "^3.3.2",
+    "typescript": "^5.5.3"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
