@@ -1,6 +1,6 @@
 import multer from "multer";
 import {nanoid} from 'nanoid';
-import { ApiError } from "../utils/ApiError.util";
+import { ApiError } from "../utils/ApiError.util.js";
 
 // We can store the uploaded file on disk or memory. Since we we recieve a big file, ram will be compromised, we will go with disk method
 // We get a 'file' option in function which express don't give, express give (req, res)
