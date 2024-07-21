@@ -17,6 +17,7 @@ import { User } from "../models/user.model.js";
 import { generateAccessAndRefreshToken } from "../utils/generateAccessAndRefreshToken.util.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 // Global cookie options for sending cookies
 const cookieOptions = {
@@ -73,14 +74,14 @@ const userRegistration = asyncHandler(async (req, res) => {
         // upload images to cloudinary
         const avatar = await uploadOnCloudinary(avatarLocalPath);
         if (!avatar) throw new ApiError(400, "ERROR: avatar not uploaded");
-    
+
         let coverImage = "";
         if (coverImageLocalPath) {
             coverImage = await uploadOnCloudinary(coverImageLocalPath);
         }
         // console.log(avatar);
         // if (!coverImage) throw new ApiError(400, "ERROR: cover image not uploaded, please retry");
-    
+
         // CREATING ENTRY OF NEW USER IN DATABASE
         const user = await User.create({
             fullName,
@@ -92,28 +93,35 @@ const userRegistration = asyncHandler(async (req, res) => {
             username: username.toLowerCase(),
             password,
         });
-    
+
         // CHECKING FOR NEW USER CREATION
         if (!user) throw new ApiError(500, "ERROR: failed to create new user");
 
-        const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
-    
+        const { accessToken, refreshToken } =
+            await generateAccessAndRefreshToken(user._id);
+
         // REMOVING ENCRYPTED PASSWORD AND REFRESH TOKEN AS USER DON'T NEED THEM FROM RESPONSE
         const createdUser = { ...user };
         delete createdUser._doc.password;
         delete createdUser._doc.refreshToken;
-    
+
         // REMOVING LOCALLY STORED TEMPORARY ASSETS
         removeAssets([avatarLocalPath, coverImageLocalPath]);
-    
+
         // SENDING RESPONSE
-        console.log(`account '${createdUser._doc.username}' created successfully`);
+        console.log(
+            `account '${createdUser._doc.username}' created successfully`
+        );
         return res
             .status(201)
             .cookie("accessToken", accessToken, cookieOptions)
             .cookie("refreshToken", refreshToken, cookieOptions)
             .json(
-                new ApiResponse(200, createdUser._doc, "User created successfully")
+                new ApiResponse(
+                    200,
+                    createdUser._doc,
+                    "User created successfully"
+                )
             );
     } catch (error) {
         // REMOVING LOCALLY STORED TEMPORARY ASSETS
@@ -131,7 +139,7 @@ const userLogin = asyncHandler(async (req, res) => {
     // send cookie
 
     // LOGIN DATA FROM USER
-    const { email, username, password } = req.body;     
+    const { email, username, password } = req.body;
     if (!(email || username))
         throw new ApiError(400, "ERROR: please provide email or username");
 
@@ -166,11 +174,7 @@ const userLogin = asyncHandler(async (req, res) => {
         .cookie("accessToken", accessToken, cookieOptions)
         .cookie("refreshToken", refreshToken, cookieOptions)
         .json(
-            new ApiResponse(
-                200,
-                loggedInUser,
-                "user logged in successfully"
-            )
+            new ApiResponse(200, loggedInUser, "user logged in successfully")
         );
 });
 
@@ -180,11 +184,11 @@ const userLogout = asyncHandler(async (req, res) => {
         req.user._id,
         {
             $set: {
-                refreshToken: '',
+                refreshToken: "",
             },
         },
         {
-        new: true      // will return latest value of object after update, as we are not storing this instance in a variable
+            new: true, // will return latest value of object after update, as we are not storing this instance in a variable
         }
     );
 
@@ -193,7 +197,7 @@ const userLogout = asyncHandler(async (req, res) => {
         .clearCookie("accessToken", cookieOptions)
         .clearCookie("refreshToken", cookieOptions)
         .json(new ApiResponse(200, {}, "user logged out successfully"));
-});     
+});
 
 const userRefreshToken = asyncHandler(async (req, res) => {
     // Look for refresh token from cookies
@@ -294,10 +298,10 @@ const userAvatarUpdate = asyncHandler(async (req, res) => {
 
     try {
         const oldAvatarPublicId = req.user?.avatarPublicId;
-    
+
         const avatar = await uploadOnCloudinary(avatarLocalPath);
         if (!avatar.url) throw new ApiError(500, "unable to upload avatar");
-    
+
         let user = await User.findByIdAndUpdate(
             req?.user._id,
             {
@@ -310,9 +314,9 @@ const userAvatarUpdate = asyncHandler(async (req, res) => {
                 new: true,
             }
         );
-    
+
         if (!user) throw new ApiError(500, "failed to update avatar");
-    
+
         let oldAvatarRemovedResponse;
         try {
             oldAvatarRemovedResponse =
@@ -320,9 +324,9 @@ const userAvatarUpdate = asyncHandler(async (req, res) => {
         } catch (error) {
             oldAvatarRemovedResponse = null;
         }
-    
+
         removeAssets([avatarLocalPath]);
-    
+
         return res.status(200).json(
             new ApiResponse(
                 200,
@@ -341,14 +345,16 @@ const userAvatarUpdate = asyncHandler(async (req, res) => {
 
 const userCoverImageUpdate = asyncHandler(async (req, res) => {
     const coverImageLocalPath = req.file?.path;
-    if (!coverImageLocalPath) throw new ApiError(400, "no cover image was uploaded");
+    if (!coverImageLocalPath)
+        throw new ApiError(400, "no cover image was uploaded");
 
     try {
         const coverImage = await uploadOnCloudinary(coverImageLocalPath);
-        if (!coverImage.url) throw new ApiError(500, "unable to upload cover image");
-    
+        if (!coverImage.url)
+            throw new ApiError(500, "unable to upload cover image");
+
         const oldCoverImagePublicId = req.user?.coverImagePublicId;
-    
+
         const user = await User.findByIdAndUpdate(
             req?.user._id,
             {
@@ -361,9 +367,9 @@ const userCoverImageUpdate = asyncHandler(async (req, res) => {
                 new: true,
             }
         );
-    
+
         if (!user) throw new ApiError(500, "failed to update cover image");
-    
+
         let oldCoverImageRemovedResponse;
         try {
             oldCoverImageRemovedResponse = await removeOneFromCloudinary(
@@ -372,9 +378,9 @@ const userCoverImageUpdate = asyncHandler(async (req, res) => {
         } catch (error) {
             oldCoverImageRemovedResponse = null;
         }
-    
+
         removeAssets([coverImageLocalPath]);
-    
+
         return res.status(200).json(
             new ApiResponse(
                 200,
@@ -406,19 +412,19 @@ const userDelete = asyncHandler(async (req, res) => {
 
         console.log(`account '${response.username}' deleted successfully`);
         return res
-        .status(200)
-        .clearCookie("accessToken", cookieOptions)      // clear cookies on logout else, when login these cookies interfere
-        .clearCookie("refreshToken", cookieOptions)
-        .json(
-            new ApiResponse(
-                200,
-                {
-                    response,
-                    cloudinaryDeleteStatus: avatarCoverImageDeleteResponse,
-                },
-                "user deleted successfully"
-            )
-        );
+            .status(200)
+            .clearCookie("accessToken", cookieOptions) // clear cookies on logout else, when login these cookies interfere
+            .clearCookie("refreshToken", cookieOptions)
+            .json(
+                new ApiResponse(
+                    200,
+                    {
+                        response,
+                        cloudinaryDeleteStatus: avatarCoverImageDeleteResponse,
+                    },
+                    "user deleted successfully"
+                )
+            );
     } catch (error) {
         throw new ApiError(500, "failed to delete user");
     }
@@ -431,40 +437,42 @@ const userChannelProfile = asyncHandler(async (req, res) => {
     const channel = await User.aggregate([
         {
             // First: search for user
-            $match: username?.toLowerCase(),
+            $match: {
+                username: username?.toLowerCase(),
+            },
         },
         {
-            // Second: users who suscribed to same channel, therefore select current channel for suscribers
+            // Second: users who suscribed to same channel, therefore select current channel for subscribers
             // for 'localField' find all 'from' using 'foriegnFeild' as name document as 'as'
             $lookup: {
                 from: "subscriptions", // since MongoDB changes collection names to plural with lowercases
                 localField: "_id", // user id for current channel
                 foreignField: "channel",
-                as: "suscribers",
+                as: "subscribers",
             },
         },
         {
-            // Third: current channel who suscribed to other channel, therefore select suscriber as our current channel has suscribed to other channel
+            // Third: current channel who suscribed to other channel, therefore select subscriber as our current channel has suscribed to other channel
             $lookup: {
                 from: "subscriptions", // since MongoDB changes collection names to plural with lowercases
                 localField: "_id", // user id for current channel
-                foreignField: "suscriber",
+                foreignField: "subscriber",
                 as: "suscribedToChannels",
             },
         },
         {
-            // Forth: count suscribers and suscribed channels
+            // Forth: count subscribers and suscribed channels
             $addFields: {
-                suscribersCount: {
-                    $size: "$suscribers",
+                subscribersCount: {
+                    $size: "$subscribers",
                 },
                 suscribedToChannelsCount: {
-                    $size: "suscribedToChannels",
+                    $size: "$suscribedToChannels",
                 },
                 isSuscribed: {
                     // if our current user has suscribed to current channel
                     $cond: {
-                        if: { $in: [req.user?._id, "$suscribers.suscriber"] },
+                        if: { $in: [req.user?._id, "$subscribers.subscriber"] },
                         then: true,
                         else: false,
                     },
@@ -476,7 +484,7 @@ const userChannelProfile = asyncHandler(async (req, res) => {
             $project: {
                 fullName: 1,
                 username: 1,
-                suscribersCount: 1,
+                subscribersCount: 1,
                 suscribedToChannelsCount: 1,
                 isSuscribed: 1,
                 avatarUrl: 1,
