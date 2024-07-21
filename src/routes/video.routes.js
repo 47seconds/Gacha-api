@@ -19,6 +19,6 @@ videoRouter.route('/upload').post(
     videoUpload
 );
 
-videoRouter.route('/get-video/:vedioid').get(videoIdSearch);
+videoRouter.route('/get-video/:videoid').get(videoIdSearch);
 
 export default videoRouter;
