@@ -4,7 +4,6 @@ import { ApiResponse } from "../utils/ApiResponse.util.js";
 import {User} from '../models/user.model.js';
 import {Video} from '../models/video.model.js';
 import { uploadOnCloudinary } from "../services/cloudinary.service.js";
-import ffmpeg from "ffmpeg";
 import mongoose from "mongoose";
 
 const videoUpload = asyncHandler(async (req, res) => {
@@ -22,9 +21,8 @@ const videoUpload = asyncHandler(async (req, res) => {
     const user = User.findById(req?.user._id);
     if(!user) throw new ApiError(401, "unauthorized! login before upload");
 
-    const {title, description} = req.body.title;
-    if(!title) throw new ApiError(400, "video title required");
-    if(!description) description = title;       // description setted to title by default
+    const {caption} = req.body;
+    if(!caption) throw new ApiError(400, "video title required");
 
     let videoLocalPath;
     if(req.files && Array.isArray(req.files.video) && req.files.video) {
@@ -47,8 +45,7 @@ const videoUpload = asyncHandler(async (req, res) => {
         videoPublicId: video.public_id,
         thumbnailUrl: thumbnail.url,
         thumbnailPublicId: thumbnail.public_id,
-        title,
-        description: description,
+        cation: caption,
         duration: video.duration,
         owner: req.user
     });
