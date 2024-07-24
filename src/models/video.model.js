@@ -11,19 +11,7 @@ const videoSchema = new Schema(
             type: String,
             required: true
         },
-        thumbnailUrl: {
-            type: String,    // Cloudinary / AWS media bucket url
-            required: true
-        },
-        thumbnailPublicId: {
-            type: String,
-            required: true
-        },
-        title: {
-            type: String,
-            required: true
-        },
-        description: {
+        caption: {
             type: String,
             required: true
         },
