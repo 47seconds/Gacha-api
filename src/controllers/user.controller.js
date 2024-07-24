@@ -17,7 +17,6 @@ import { User } from "../models/user.model.js";
 import { generateAccessAndRefreshToken } from "../utils/generateAccessAndRefreshToken.util.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 // Global cookie options for sending cookies
 const cookieOptions = {
@@ -443,10 +442,10 @@ const userChannelProfile = asyncHandler(async (req, res) => {
         },
         {
             // Second: users who suscribed to same channel, therefore select current channel for subscribers
-            // for 'localField' find all 'from' using 'foriegnFeild' as name document as 'as'
+            // The $lookup stage performs a left outer join with the subscriptions collection. It matches the _id field of the users (from the User collection) with the channel field in the subscriptions collection. The results are stored in the subscribers field of the user document.
             $lookup: {
                 from: "subscriptions", // since MongoDB changes collection names to plural with lowercases
-                localField: "_id", // user id for current channel
+                localField: "_id", // user id for current channel (got from $match pipeline that returned/passed channel's user details)
                 foreignField: "channel",
                 as: "subscribers",
             },
@@ -565,6 +564,92 @@ const userWatchHistory = asyncHandler(async (req, res) => {
         );
 });
 
+const userLikedVideos = asyncHandler(async (req, res) => {
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
+        },
+        {
+            $lookup: {
+                from: "likes",
+                localField: "_id",
+                foreignField: "likedBy",
+                as: "likes",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "videos",
+                            localField: "video", // from likes model
+                            foreignField: "_id",
+                            as: "likedVideoDetails",
+                            pipeline: [
+                                {
+                                    $lookup: {
+                                        from: "users",
+                                        localField: "owner",
+                                        foreignField: "_id",
+                                        as: "ownerDetails",
+                                        pipeline: [
+                                            {
+                                                $project: {
+                                                    fullName: 1,
+                                                    username: 1,
+                                                    avatarUrl: 1
+                                                }
+                                            }
+                                        ]
+                                    }
+                                },
+                                {
+                                    $addFields: {
+                                        owner: {
+                                            $arrayElemAt: ["$ownerDetails", 0]
+                                        }
+                                    }
+                                },
+                            ]
+                        }
+                    },
+                    {
+                        $addFields: {
+                            video: {
+                                $arrayElemAt: ["$likedVideoDetails", 0]
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                likedVideos: {
+                    $map: {
+                        input: "$likes",
+                        as: "like",
+                        in: {
+                            video: "$$like.video"
+                        }
+                    }
+                }
+            }
+        }
+    ]);
+
+    if (!user) throw new ApiError(400, "no such user to view liked videos");
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user.likedVideos,
+            "liked videos fetched successfully"
+        )
+    );
+});
+
 export {
     userRegistration,
     userLogin,
@@ -578,4 +663,5 @@ export {
     userDelete,
     userChannelProfile,
     userWatchHistory,
+    userLikedVideos,
 };
