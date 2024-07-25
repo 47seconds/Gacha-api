@@ -11,13 +11,12 @@ import {
 import {
     uploadOnCloudinary,
     removeOneFromCloudinary,
-    removeManyFromCloudinary,
+    removeManyFromCloudinary
 } from "../services/cloudinary.service.js";
 import { User } from "../models/user.model.js";
 import { generateAccessAndRefreshToken } from "../utils/generateAccessAndRefreshToken.util.js";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 // Global cookie options for sending cookies
 const cookieOptions = {
@@ -72,12 +71,12 @@ const userRegistration = asyncHandler(async (req, res) => {
 
     try {
         // upload images to cloudinary
-        const avatar = await uploadOnCloudinary(avatarLocalPath);
+        const avatar = await uploadOnCloudinary(avatarLocalPath, username);
         if (!avatar) throw new ApiError(400, "ERROR: avatar not uploaded");
 
         let coverImage = "";
         if (coverImageLocalPath) {
-            coverImage = await uploadOnCloudinary(coverImageLocalPath);
+            coverImage = await uploadOnCloudinary(coverImageLocalPath, username);
         }
         // console.log(avatar);
         // if (!coverImage) throw new ApiError(400, "ERROR: cover image not uploaded, please retry");
@@ -85,9 +84,9 @@ const userRegistration = asyncHandler(async (req, res) => {
         // CREATING ENTRY OF NEW USER IN DATABASE
         const user = await User.create({
             fullName,
-            avatarUrl: avatar.url,
+            avatarUrl: avatar.secure_url,
             avatarPublicId: avatar.public_id, // will be used to delete assets
-            coverImageUrl: coverImage?.url || "", // since coverImage is optional in user madel
+            coverImageUrl: coverImage?.secure_url || "", // since coverImage is optional in user madel
             coverImagePublicId: coverImage?.public_id, // will be used to delete assets
             email,
             username: username.toLowerCase(),
@@ -299,14 +298,14 @@ const userAvatarUpdate = asyncHandler(async (req, res) => {
     try {
         const oldAvatarPublicId = req.user?.avatarPublicId;
 
-        const avatar = await uploadOnCloudinary(avatarLocalPath);
-        if (!avatar.url) throw new ApiError(500, "unable to upload avatar");
+        const avatar = await uploadOnCloudinary(avatarLocalPath, username);
+        if (!avatar.secure_url) throw new ApiError(500, "unable to upload avatar");
 
         let user = await User.findByIdAndUpdate(
             req?.user._id,
             {
                 $set: {
-                    avatarUrl: avatar.url,
+                    avatarUrl: avatar.secure_url,
                     avatarPublicId: avatar.public_id,
                 },
             },
@@ -349,8 +348,8 @@ const userCoverImageUpdate = asyncHandler(async (req, res) => {
         throw new ApiError(400, "no cover image was uploaded");
 
     try {
-        const coverImage = await uploadOnCloudinary(coverImageLocalPath);
-        if (!coverImage.url)
+        const coverImage = await uploadOnCloudinary(coverImageLocalPath, username);
+        if (!coverImage.secure_url)
             throw new ApiError(500, "unable to upload cover image");
 
         const oldCoverImagePublicId = req.user?.coverImagePublicId;
@@ -359,7 +358,7 @@ const userCoverImageUpdate = asyncHandler(async (req, res) => {
             req?.user._id,
             {
                 $set: {
-                    coverImageUrl: coverImage.url,
+                    coverImageUrl: coverImage.secure_url,
                     coverImagePublicId: coverImage.public_id,
                 },
             },
@@ -443,10 +442,10 @@ const userChannelProfile = asyncHandler(async (req, res) => {
         },
         {
             // Second: users who suscribed to same channel, therefore select current channel for subscribers
-            // for 'localField' find all 'from' using 'foriegnFeild' as name document as 'as'
+            // The $lookup stage performs a left outer join with the subscriptions collection. It matches the _id field of the users (from the User collection) with the channel field in the subscriptions collection. The results are stored in the subscribers field of the user document.
             $lookup: {
                 from: "subscriptions", // since MongoDB changes collection names to plural with lowercases
-                localField: "_id", // user id for current channel
+                localField: "_id", // user id for current channel (got from $match pipeline that returned/passed channel's user details)
                 foreignField: "channel",
                 as: "subscribers",
             },
@@ -506,63 +505,149 @@ const userChannelProfile = asyncHandler(async (req, res) => {
     );
 });
 
-const userWatchHistory = asyncHandler(async (req, res) => {
+// const userWatchHistory = asyncHandler(async (req, res) => {
+//     const user = await User.aggregate([
+//         {
+//             // find user
+//             $match: {
+//                 // since mongoose _id is moongose OnjectId object, but req.user._id will be string, by parsing it mongoose take care of converting it to ObjectId, but pipelines don't, so we have to forcefylly convert it
+//                 _id: new mongoose.Types.ObjectId(req.user._id),
+//             },
+//         },
+//         {
+//             $lookup: {
+//                 localField: "watchHistory",
+//                 from: "videos",
+//                 foreignField: "_id",
+//                 as: "watchHistory",
+//                 pipeline: [
+//                     // since watchHistory has owner field as user, we need that info too
+//                     {
+//                         $lookup: {
+//                             localField: "owner",
+//                             from: "users",
+//                             foreignField: "_id",
+//                             as: "owner",
+//                             pipeline: [
+//                                 {
+//                                     $project: {
+//                                         // as each owner has its own user properties -> [{fullname, username, ...}], if this pipeline was done outside, we would have array of users (owners) will all details -> [{fullname, ...(all)}, {...}, ...], and sorting them would have been very difficult
+//                                         fullName: 1,
+//                                         username: 1,
+//                                         avatarUrl: 1,
+//                                     },
+//                                 },
+//                             ],
+//                         },
+//                     },
+//                     {
+//                         $addFields: {
+//                             owner: {
+//                                 // for frontend, since only first object in array is our owner, just send that as response
+//                                 $first: "$owner",
+//                             },
+//                         },
+//                     },
+//                 ],
+//             },
+//         },
+//     ]);
+
+//     return res
+//         .status(200)
+//         .json(
+//             new ApiResponse(
+//                 200,
+//                 user[0].watchHistory,
+//                 "user watch history fetched successfully"
+//             )
+//         );
+// });
+
+const userLikedVideos = asyncHandler(async (req, res) => {
     const user = await User.aggregate([
         {
-            // find user
             $match: {
-                // since mongoose _id is moongose OnjectId object, but req.user._id will be string, by parsing it mongoose take care of converting it to ObjectId, but pipelines don't, so we have to forcefylly convert it
-                _id: new mongoose.Types.ObjectId(req.user._id),
-            },
+                _id: new mongoose.Types.ObjectId(req.user._id)
+            }
         },
         {
             $lookup: {
-                localField: "watchHistory",
-                from: "videos",
-                foreignField: "_id",
-                as: "watchHistory",
+                from: "likes",
+                localField: "_id",
+                foreignField: "likedBy",
+                as: "likes",
                 pipeline: [
-                    // since watchHistory has owner field as user, we need that info too
                     {
                         $lookup: {
-                            localField: "owner",
-                            from: "users",
+                            from: "videos",
+                            localField: "video", // from likes model
                             foreignField: "_id",
-                            as: "owner",
+                            as: "likedVideoDetails",
                             pipeline: [
                                 {
-                                    $project: {
-                                        // as each owner has its own user properties -> [{fullname, username, ...}], if this pipeline was done outside, we would have array of users (owners) will all details -> [{fullname, ...(all)}, {...}, ...], and sorting them would have been very difficult
-                                        fullName: 1,
-                                        username: 1,
-                                        avatarUrl: 1,
-                                    },
+                                    $lookup: {
+                                        from: "users",
+                                        localField: "owner",
+                                        foreignField: "_id",
+                                        as: "ownerDetails",
+                                        pipeline: [
+                                            {
+                                                $project: {
+                                                    fullName: 1,
+                                                    username: 1,
+                                                    avatarUrl: 1
+                                                }
+                                            }
+                                        ]
+                                    }
                                 },
-                            ],
-                        },
+                                {
+                                    $addFields: {
+                                        owner: {
+                                            $arrayElemAt: ["$ownerDetails", 0]
+                                        }
+                                    }
+                                },
+                            ]
+                        }
                     },
                     {
                         $addFields: {
-                            owner: {
-                                // for frontend, since only first object in array is our owner, just send that as response
-                                $first: "$owner",
-                            },
-                        },
-                    },
-                ],
-            },
+                            video: {
+                                $arrayElemAt: ["$likedVideoDetails", 0]
+                            }
+                        }
+                    }
+                ]
+            }
         },
+        {
+            $addFields: {
+                likedVideos: {
+                    $map: {
+                        input: "$likes",
+                        as: "like",
+                        in: {
+                            video: "$$like.video"
+                        }
+                    }
+                }
+            }
+        }
     ]);
 
+    if (!user) throw new ApiError(400, "no such user to view liked videos");
+
     return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                user[0].watchHistory,
-                "user watch history fetched successfully"
-            )
-        );
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user.likedVideos,
+            "liked videos fetched successfully"
+        )
+    );
 });
 
 export {
@@ -577,5 +662,6 @@ export {
     userCoverImageUpdate,
     userDelete,
     userChannelProfile,
-    userWatchHistory,
+    // userWatchHistory,
+    userLikedVideos,
 };

@@ -11,7 +11,7 @@ import {
     userCoverImageUpdate,
     userDelete,
     userChannelProfile,
-    userWatchHistory,
+    // userWatchHistory,
 } from "../controllers/user.controller.js";
 import { uploadImages } from "../middlewares/multer.middleware.js";
 import {userSession} from '../middlewares/userSession.middleware.js';
@@ -50,7 +50,7 @@ userRouter
     .route("/change-cover-image")
     .patch(verifyJWT, uploadImages.single("coverImage"), userCoverImageUpdate); // update user cover image
 userRouter.route("/channel/:username").get(verifyJWT, userChannelProfile); // get any channel profile
-userRouter.route("/history").get(verifyJWT, userWatchHistory); // get user watch history
+// userRouter.route("/history").get(verifyJWT, userWatchHistory); // get user watch history
 
 export default userRouter;
         
