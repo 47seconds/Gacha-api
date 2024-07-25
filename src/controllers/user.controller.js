@@ -11,7 +11,7 @@ import {
 import {
     uploadOnCloudinary,
     removeOneFromCloudinary,
-    removeManyFromCloudinary,
+    removeManyFromCloudinary
 } from "../services/cloudinary.service.js";
 import { User } from "../models/user.model.js";
 import { generateAccessAndRefreshToken } from "../utils/generateAccessAndRefreshToken.util.js";
@@ -71,12 +71,12 @@ const userRegistration = asyncHandler(async (req, res) => {
 
     try {
         // upload images to cloudinary
-        const avatar = await uploadOnCloudinary(avatarLocalPath);
+        const avatar = await uploadOnCloudinary(avatarLocalPath, username);
         if (!avatar) throw new ApiError(400, "ERROR: avatar not uploaded");
 
         let coverImage = "";
         if (coverImageLocalPath) {
-            coverImage = await uploadOnCloudinary(coverImageLocalPath);
+            coverImage = await uploadOnCloudinary(coverImageLocalPath, username);
         }
         // console.log(avatar);
         // if (!coverImage) throw new ApiError(400, "ERROR: cover image not uploaded, please retry");
@@ -84,9 +84,9 @@ const userRegistration = asyncHandler(async (req, res) => {
         // CREATING ENTRY OF NEW USER IN DATABASE
         const user = await User.create({
             fullName,
-            avatarUrl: avatar.url,
+            avatarUrl: avatar.secure_url,
             avatarPublicId: avatar.public_id, // will be used to delete assets
-            coverImageUrl: coverImage?.url || "", // since coverImage is optional in user madel
+            coverImageUrl: coverImage?.secure_url || "", // since coverImage is optional in user madel
             coverImagePublicId: coverImage?.public_id, // will be used to delete assets
             email,
             username: username.toLowerCase(),
@@ -298,14 +298,14 @@ const userAvatarUpdate = asyncHandler(async (req, res) => {
     try {
         const oldAvatarPublicId = req.user?.avatarPublicId;
 
-        const avatar = await uploadOnCloudinary(avatarLocalPath);
-        if (!avatar.url) throw new ApiError(500, "unable to upload avatar");
+        const avatar = await uploadOnCloudinary(avatarLocalPath, username);
+        if (!avatar.secure_url) throw new ApiError(500, "unable to upload avatar");
 
         let user = await User.findByIdAndUpdate(
             req?.user._id,
             {
                 $set: {
-                    avatarUrl: avatar.url,
+                    avatarUrl: avatar.secure_url,
                     avatarPublicId: avatar.public_id,
                 },
             },
@@ -348,8 +348,8 @@ const userCoverImageUpdate = asyncHandler(async (req, res) => {
         throw new ApiError(400, "no cover image was uploaded");
 
     try {
-        const coverImage = await uploadOnCloudinary(coverImageLocalPath);
-        if (!coverImage.url)
+        const coverImage = await uploadOnCloudinary(coverImageLocalPath, username);
+        if (!coverImage.secure_url)
             throw new ApiError(500, "unable to upload cover image");
 
         const oldCoverImagePublicId = req.user?.coverImagePublicId;
@@ -358,7 +358,7 @@ const userCoverImageUpdate = asyncHandler(async (req, res) => {
             req?.user._id,
             {
                 $set: {
-                    coverImageUrl: coverImage.url,
+                    coverImageUrl: coverImage.secure_url,
                     coverImagePublicId: coverImage.public_id,
                 },
             },
@@ -505,64 +505,64 @@ const userChannelProfile = asyncHandler(async (req, res) => {
     );
 });
 
-const userWatchHistory = asyncHandler(async (req, res) => {
-    const user = await User.aggregate([
-        {
-            // find user
-            $match: {
-                // since mongoose _id is moongose OnjectId object, but req.user._id will be string, by parsing it mongoose take care of converting it to ObjectId, but pipelines don't, so we have to forcefylly convert it
-                _id: new mongoose.Types.ObjectId(req.user._id),
-            },
-        },
-        {
-            $lookup: {
-                localField: "watchHistory",
-                from: "videos",
-                foreignField: "_id",
-                as: "watchHistory",
-                pipeline: [
-                    // since watchHistory has owner field as user, we need that info too
-                    {
-                        $lookup: {
-                            localField: "owner",
-                            from: "users",
-                            foreignField: "_id",
-                            as: "owner",
-                            pipeline: [
-                                {
-                                    $project: {
-                                        // as each owner has its own user properties -> [{fullname, username, ...}], if this pipeline was done outside, we would have array of users (owners) will all details -> [{fullname, ...(all)}, {...}, ...], and sorting them would have been very difficult
-                                        fullName: 1,
-                                        username: 1,
-                                        avatarUrl: 1,
-                                    },
-                                },
-                            ],
-                        },
-                    },
-                    {
-                        $addFields: {
-                            owner: {
-                                // for frontend, since only first object in array is our owner, just send that as response
-                                $first: "$owner",
-                            },
-                        },
-                    },
-                ],
-            },
-        },
-    ]);
+// const userWatchHistory = asyncHandler(async (req, res) => {
+//     const user = await User.aggregate([
+//         {
+//             // find user
+//             $match: {
+//                 // since mongoose _id is moongose OnjectId object, but req.user._id will be string, by parsing it mongoose take care of converting it to ObjectId, but pipelines don't, so we have to forcefylly convert it
+//                 _id: new mongoose.Types.ObjectId(req.user._id),
+//             },
+//         },
+//         {
+//             $lookup: {
+//                 localField: "watchHistory",
+//                 from: "videos",
+//                 foreignField: "_id",
+//                 as: "watchHistory",
+//                 pipeline: [
+//                     // since watchHistory has owner field as user, we need that info too
+//                     {
+//                         $lookup: {
+//                             localField: "owner",
+//                             from: "users",
+//                             foreignField: "_id",
+//                             as: "owner",
+//                             pipeline: [
+//                                 {
+//                                     $project: {
+//                                         // as each owner has its own user properties -> [{fullname, username, ...}], if this pipeline was done outside, we would have array of users (owners) will all details -> [{fullname, ...(all)}, {...}, ...], and sorting them would have been very difficult
+//                                         fullName: 1,
+//                                         username: 1,
+//                                         avatarUrl: 1,
+//                                     },
+//                                 },
+//                             ],
+//                         },
+//                     },
+//                     {
+//                         $addFields: {
+//                             owner: {
+//                                 // for frontend, since only first object in array is our owner, just send that as response
+//                                 $first: "$owner",
+//                             },
+//                         },
+//                     },
+//                 ],
+//             },
+//         },
+//     ]);
 
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(
-                200,
-                user[0].watchHistory,
-                "user watch history fetched successfully"
-            )
-        );
-});
+//     return res
+//         .status(200)
+//         .json(
+//             new ApiResponse(
+//                 200,
+//                 user[0].watchHistory,
+//                 "user watch history fetched successfully"
+//             )
+//         );
+// });
 
 const userLikedVideos = asyncHandler(async (req, res) => {
     const user = await User.aggregate([
@@ -662,6 +662,6 @@ export {
     userCoverImageUpdate,
     userDelete,
     userChannelProfile,
-    userWatchHistory,
+    // userWatchHistory,
     userLikedVideos,
 };
