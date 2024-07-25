@@ -15,10 +15,6 @@ const videoSchema = new Schema(
             type: String,
             required: true
         },
-        duration: {
-            type: Number,   // Cloudinary / AWS media bucket give duration of media
-            required: true
-        },
         views: {
             type: Number,
             default: 0,
