@@ -19,9 +19,12 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 
 // Global cookie options for sending cookies
+// maxAge is different so will specify using destructureing them, else if not declare, these will become session cookies
+// CLIENT SIDE HAVE TO STORE USER DATA IN COOKIES THEMSELVES AND LOAD THAT IT APPLICATION ACCORDINGLY | GACHA FRONTEND HAVE THIS FEATURE.
 const cookieOptions = {
     httpOnly: true,
     secure: true,
+    sameSite: 'Lax'
 };
 
 const userRegistration = asyncHandler(async (req, res) => {
@@ -113,8 +116,8 @@ const userRegistration = asyncHandler(async (req, res) => {
         );
         return res
             .status(201)
-            .cookie("accessToken", accessToken, cookieOptions)
-            .cookie("refreshToken", refreshToken, cookieOptions)
+            .cookie("accessToken", accessToken, {cookieOptions, maxAge: 86400000}) // exp in 1 day
+            .cookie("refreshToken", refreshToken, {...cookieOptions, maxAge: 864000000}) // exp in 10 days
             .json(
                 new ApiResponse(
                     200,
@@ -170,8 +173,8 @@ const userLogin = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .cookie("accessToken", accessToken, cookieOptions)
-        .cookie("refreshToken", refreshToken, cookieOptions)
+        .cookie("accessToken", accessToken, {...cookieOptions, maxAge: 86400000}) // exp in 1 dat
+        .cookie("refreshToken", refreshToken, {...cookieOptions, maxAge: 864000000}) // exp in 10 day
         .json(
             new ApiResponse(200, loggedInUser, "user logged in successfully")
         );
