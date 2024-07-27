@@ -24,7 +24,7 @@ import mongoose from "mongoose";
 const cookieOptions = {
     httpOnly: true,
     secure: true,
-    sameSite: 'Lax'
+    sameSite: 'None', // Since Backend and Frontend on different domains
 };
 
 const userRegistration = asyncHandler(async (req, res) => {

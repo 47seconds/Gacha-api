@@ -7,6 +7,7 @@ import { ApiResponse } from "../utils/ApiResponse.util.js";
 const cookieOptions = {
     httpOnly: true,
     secure: true,
+    sameSite: 'None', // Since Backend and Frontend on different domains
 };
 
 // Check if user have session cookies so no login required
