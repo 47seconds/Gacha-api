@@ -54,7 +54,7 @@ export const uploadHLSonCloudinary = async (hlsPath, username) => {
                     resource_type: "raw",
                     folder: shottieFolder,
                     public_id: filename,
-                    timeout: 60000,
+                    timeout: 120000,
                 });
             } else {
                 filename = filename.replace(path.extname(filename), '');
